@@ -12,10 +12,11 @@ export default function TimerWithNotifications() {
     setLogs((prevLogs) => [...prevLogs, message]);
   };
 
-  // Solicitar permiso automáticamente al cargar la página
+  // Solicitar permiso automáticamente al cargar la página y registrar el Service Worker
   useEffect(() => {
-    const requestPermissionOnLoad = async () => {
+    const requestPermissionAndRegisterSW = async () => {
       try {
+        // Solicitar permiso de notificaciones
         if ('Notification' in window) {
           const result = await Notification.requestPermission();
           setPermission(result);
@@ -23,12 +24,28 @@ export default function TimerWithNotifications() {
         } else {
           addLog('El navegador no soporta notificaciones.');
         }
+
+        // Registrar el Service Worker
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker
+            .register('/service-worker.js')
+            .then((registration) => {
+              addLog('Service Worker registrado con éxito.');
+              console.log('Service Worker registrado:', registration);
+            })
+            .catch((error) => {
+              addLog(`Error al registrar el Service Worker: ${error.message}`);
+              console.error('Error al registrar el Service Worker:', error);
+            });
+        } else {
+          addLog('El navegador no soporta Service Workers.');
+        }
       } catch (error) {
-        addLog(`Error al solicitar permiso de notificación: ${(error as Error).message}`);
+        addLog(`Error general: ${(error as Error).message}`);
       }
     };
 
-    requestPermissionOnLoad();
+    requestPermissionAndRegisterSW();
   }, []);
 
   // Manejar el inicio del contador
@@ -46,10 +63,12 @@ export default function TimerWithNotifications() {
     addLog('Temporizador reiniciado.');
 
     if (permission === 'granted') {
-      new Notification('El temporizador se ha reiniciado', {
-        body: 'El temporizador ahora está configurado nuevamente a 30 segundos.',
+      navigator.serviceWorker.ready.then((registration) => {
+        registration.showNotification('El temporizador se ha reiniciado', {
+          body: 'El temporizador ahora está configurado nuevamente a 30 segundos.',
+        });
+        addLog('Notificación enviada: "El temporizador se ha reiniciado".');
       });
-      addLog('Notificación enviada: "El temporizador se ha reiniciado".');
     } else {
       addLog('Notificación no enviada: Permiso no concedido.');
     }
@@ -67,10 +86,12 @@ export default function TimerWithNotifications() {
       addLog('El temporizador terminó.');
 
       if (permission === 'granted') {
-        new Notification('El tiempo se ha acabado', {
-          body: 'Puedes reiniciar el temporizador si lo necesitas.',
+        navigator.serviceWorker.ready.then((registration) => {
+          registration.showNotification('El tiempo se ha acabado', {
+            body: 'Puedes reiniciar el temporizador si lo necesitas.',
+          });
+          addLog('Notificación enviada: "El tiempo se ha acabado".');
         });
-        addLog('Notificación enviada: "El tiempo se ha acabado".');
       } else {
         addLog('Notificación no enviada: Permiso no concedido.');
       }

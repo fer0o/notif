@@ -1,101 +1,110 @@
-import Image from "next/image";
+'use client';
+import { useState, useEffect } from 'react';
 
-export default function Home() {
+export default function TimerWithNotifications() {
+  const [permission, setPermission] = useState('default'); // Estado para el permiso de notificaciones
+  const [timeLeft, setTimeLeft] = useState(60); // Tiempo restante en segundos (1 minuto)
+  const [isRunning, setIsRunning] = useState(false); // Estado para controlar si el contador está en ejecución
+
+  // Solicitar permiso automáticamente al cargar la página
+  useEffect(() => {
+    const requestPermissionOnLoad = async () => {
+      try {
+        if ('Notification' in window) {
+          const result = await Notification.requestPermission();
+          setPermission(result);
+          console.log('Permiso para notificaciones:', result);
+        } else {
+          console.warn('Tu navegador no soporta notificaciones.');
+        }
+      } catch (error) {
+        console.error('Error al solicitar permiso de notificación:', error);
+      }
+    };
+
+    requestPermissionOnLoad();
+  }, []);
+
+  // Manejar el inicio del contador
+  const startTimer = () => {
+    if (!isRunning) {
+      setIsRunning(true);
+    }
+  };
+
+  // Manejar el reinicio del temporizador.
+  const resetTimer = () => {
+    setTimeLeft(60);
+    setIsRunning(false);
+
+    // Mostrar una notificación al reiniciar el temporizador
+    if (permission === 'granted') {
+      new Notification('El temporizador se ha reiniciado', {
+        body: 'El temporizador ahora está configurado nuevamente a 1 minuto.',
+      });
+    } else {
+      console.log('El temporizador se ha reiniciado.');
+    }
+  };
+
+  // Manejar la cuenta regresiva
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isRunning && timeLeft > 0) {
+      timer = setInterval(() => {
+        setTimeLeft(prevTime => prevTime - 1);
+      }, 1000);
+    } else if (timeLeft === 0) {
+      setIsRunning(false); // Detener el contador
+      // Mostrar la notificación al terminar el tiempo
+      if (permission === 'granted') {
+        new Notification('El tiempo se ha acabado', {
+          body: 'Puedes reiniciar el temporizador si lo necesitas.',
+        });
+      } else {
+        console.log('El tiempo se ha acabado.');
+      }
+    }
+
+    return () => clearInterval(timer); // Limpiar el intervalo al desmontar o al actualizar
+  }, [isRunning, timeLeft, permission]);
+
+  // Formatear el tiempo en minutos y segundos
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${secs
+      .toString()
+      .padStart(2, '0')}`;
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+    <div className='flex flex-col items-center justify-center h-screen'>
+      <div className='border-2 border-black p-8 space-y-4 flex items-center justify-center flex-col'>
+        <h1 className='text-2xl font-bold'>
+          Prueba de Notificaciones Automáticas
+        </h1>
+        <p className='text-lg'>
+          Estado del permiso: <strong>{permission}</strong>{' '}
+        </p>
+        <h2 className='text-xl'>
+          Tiempo restante: <strong>{formatTime(timeLeft)}</strong>{' '}
+        </h2>
+        <button
+          className='bg-blue-700 text-white w-96 p-2 rounded-md'
+          onClick={startTimer}
+          disabled={isRunning}
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+          Iniciar Temporizador
+        </button>
+        <button
+          className='bg-red-600 text-white w-96 p-2 rounded-md'
+          onClick={resetTimer}
+          disabled={timeLeft === 60 && !isRunning}
         >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          Reiniciar Temporizador
+        </button>
+      </div>
     </div>
   );
 }

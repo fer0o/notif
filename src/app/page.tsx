@@ -32,7 +32,7 @@ export default function TimerWithNotifications() {
     }
   };
 
-  // Manejar el reinicio del temporizador.
+  // Manejar el reinicio del temporizador....
   const resetTimer = () => {
     setTimeLeft(60);
     setIsRunning(false);

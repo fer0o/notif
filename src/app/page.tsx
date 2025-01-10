@@ -3,8 +3,14 @@ import { useState, useEffect } from 'react';
 
 export default function TimerWithNotifications() {
   const [permission, setPermission] = useState('default'); // Estado para el permiso de notificaciones
-  const [timeLeft, setTimeLeft] = useState(60); // Tiempo restante en segundos (1 minuto)
+  const [timeLeft, setTimeLeft] = useState(30); // Tiempo restante en segundos (1 minuto)
   const [isRunning, setIsRunning] = useState(false); // Estado para controlar si el contador está en ejecución
+  const [logs, setLogs] = useState<string[]>([]); // Estado para almacenar los logs visibles
+
+  // Agregar logs visibles a la pantalla
+  const addLog = (message: string) => {
+    setLogs((prevLogs) => [...prevLogs, message]);
+  };
 
   // Solicitar permiso automáticamente al cargar la página
   useEffect(() => {
@@ -13,12 +19,12 @@ export default function TimerWithNotifications() {
         if ('Notification' in window) {
           const result = await Notification.requestPermission();
           setPermission(result);
-          console.log('Permiso para notificaciones:', result);
+          addLog(`Permiso para notificaciones: ${result}`);
         } else {
-          console.warn('Tu navegador no soporta notificaciones.');
+          addLog('El navegador no soporta notificaciones.');
         }
       } catch (error) {
-        console.error('Error al solicitar permiso de notificación:', error);
+        addLog(`Error al solicitar permiso de notificación: ${(error as Error).message}`);
       }
     };
 
@@ -29,21 +35,23 @@ export default function TimerWithNotifications() {
   const startTimer = () => {
     if (!isRunning) {
       setIsRunning(true);
+      addLog('Temporizador iniciado.');
     }
   };
 
-  // Manejar el reinicio del temporizador....
+  // Manejar el reinicio del temporizador
   const resetTimer = () => {
-    setTimeLeft(60);
+    setTimeLeft(30);
     setIsRunning(false);
+    addLog('Temporizador reiniciado.');
 
-    // Mostrar una notificación al reiniciar el temporizador
     if (permission === 'granted') {
       new Notification('El temporizador se ha reiniciado', {
-        body: 'El temporizador ahora está configurado nuevamente a 1 minuto.',
+        body: 'El temporizador ahora está configurado nuevamente a 30 segundos.',
       });
+      addLog('Notificación enviada: "El temporizador se ha reiniciado".');
     } else {
-      console.log('El temporizador se ha reiniciado.');
+      addLog('Notificación no enviada: Permiso no concedido.');
     }
   };
 
@@ -52,17 +60,19 @@ export default function TimerWithNotifications() {
     let timer: NodeJS.Timeout;
     if (isRunning && timeLeft > 0) {
       timer = setInterval(() => {
-        setTimeLeft(prevTime => prevTime - 1);
+        setTimeLeft((prevTime) => prevTime - 1);
       }, 1000);
     } else if (timeLeft === 0) {
-      setIsRunning(false); // Detener el contador
-      // Mostrar la notificación al terminar el tiempo
+      setIsRunning(false);
+      addLog('El temporizador terminó.');
+
       if (permission === 'granted') {
         new Notification('El tiempo se ha acabado', {
           body: 'Puedes reiniciar el temporizador si lo necesitas.',
         });
+        addLog('Notificación enviada: "El tiempo se ha acabado".');
       } else {
-        console.log('El tiempo se ha acabado.');
+        addLog('Notificación no enviada: Permiso no concedido.');
       }
     }
 
@@ -85,10 +95,10 @@ export default function TimerWithNotifications() {
           Prueba de Notificaciones Automáticas
         </h1>
         <p className='text-lg'>
-          Estado del permiso: <strong>{permission}</strong>{' '}
+          Estado del permiso: <strong>{permission}</strong>
         </p>
         <h2 className='text-xl'>
-          Tiempo restante: <strong>{formatTime(timeLeft)}</strong>{' '}
+          Tiempo restante: <strong>{formatTime(timeLeft)}</strong>
         </h2>
         <button
           className='bg-blue-700 text-white w-96 p-2 rounded-md'
@@ -98,12 +108,22 @@ export default function TimerWithNotifications() {
           Iniciar Temporizador
         </button>
         <button
-          className='bg-red-600 text-white w-96 p-2 rounded-md'
+          className='bg-gray-700 text-white w-96 p-2 rounded-md'
           onClick={resetTimer}
-          disabled={timeLeft === 60 && !isRunning}
+          disabled={timeLeft === 30 && !isRunning}
         >
           Reiniciar Temporizador
         </button>
+      </div>
+      <div className='mt-4 border-t-2 border-black w-full max-w-xl p-4'>
+        <h3 className='text-lg font-bold'>Logs:</h3>
+        <ul className='list-disc pl-6'>
+          {logs.map((log, index) => (
+            <li key={index} className='text-sm'>
+              {log}
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );

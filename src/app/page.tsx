@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 
 // Detección básica del navegador
 const isIOS = () => {
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && 'MSStream' in window;
 };
 
 const isSafari = () => {

@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 
 export default function TimerWithNotifications() {
-  const [permission, setPermission] = useState<'default' | 'granted' | 'denied' | 'unsupported'>('default'); // Estado para el permiso de notificaciones
+  const [permission, setPermission] = useState('default'); // Estado para el permiso de notificaciones
   const [timeLeft, setTimeLeft] = useState(30); // Tiempo restante en segundos (1 minuto)
   const [isRunning, setIsRunning] = useState(false); // Estado para controlar si el contador está en ejecución
   const [logs, setLogs] = useState<string[]>([]); // Estado para almacenar los logs visibles
@@ -16,20 +16,12 @@ export default function TimerWithNotifications() {
   useEffect(() => {
     const requestPermissionAndRegisterSW = async () => {
       try {
-        // Verificar soporte de notificaciones
+        // Solicitar permiso de notificaciones
         if ('Notification' in window) {
-          const initialPermission = Notification.permission;
-          setPermission(initialPermission);
-
-          if (initialPermission === 'default') {
-            const result = await Notification.requestPermission();
-            setPermission(result);
-            addLog(`Permiso para notificaciones: ${result}`);
-          } else {
-            addLog(`Permiso inicial para notificaciones: ${initialPermission}`);
-          }
+          const result = await Notification.requestPermission();
+          setPermission(result);
+          addLog(`Permiso para notificaciones: ${result}`);
         } else {
-          setPermission('unsupported'); // Marcar como navegador sin soporte
           addLog('El navegador no soporta notificaciones.');
         }
 
@@ -117,29 +109,15 @@ export default function TimerWithNotifications() {
       .padStart(2, '0')}`;
   };
 
-  // Generar mensaje según el estado del permiso
-  const getPermissionMessage = () => {
-    if (permission === 'granted') {
-      return ''; // No mostrar mensaje si el permiso está concedido
-    } else if (permission === 'denied') {
-      return 'Para una mejor experiencia, activa las notificaciones.';
-    } else if (permission === 'unsupported') {
-      return 'Navegador de iOS detectado.';
-    }
-    return 'Estado del permiso: default.';
-  };
-
   return (
     <div className='flex flex-col items-center justify-center h-screen'>
       <div className='border-2 border-black p-8 space-y-4 flex items-center justify-center flex-col'>
         <h1 className='text-2xl font-bold'>
           Prueba de Notificaciones Automáticas
         </h1>
-        {getPermissionMessage() && (
-          <p className='text-lg text-red-50000'>
-            <strong>{getPermissionMessage()}</strong>
-          </p>
-        )}
+        <p className='text-lg'>
+          Estado del permiso: <strong>{permission}</strong>
+        </p>
         <h2 className='text-xl'>
           Tiempo restante: <strong>{formatTime(timeLeft)}</strong>
         </h2>

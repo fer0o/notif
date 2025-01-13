@@ -136,7 +136,7 @@ export default function TimerWithNotifications() {
           Prueba de Notificaciones Automáticas
         </h1>
         {getPermissionMessage() && (
-          <p className='text-lg text-red-600'>
+          <p className='text-lg text-red-50000'>
             <strong>{getPermissionMessage()}</strong>
           </p>
         )}

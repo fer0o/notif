@@ -1,146 +1,234 @@
 'use client';
+
 import { useState, useEffect } from 'react';
 
-export default function TimerWithNotifications() {
-  const [permission, setPermission] = useState('default'); // Estado para el permiso de notificaciones
-  const [timeLeft, setTimeLeft] = useState(30); // Tiempo restante en segundos (1 minuto)
-  const [isRunning, setIsRunning] = useState(false); // Estado para controlar si el contador está en ejecución
+// Definimos los estatus de los turnos
+const STATUS = {
+  CREATED: 0,
+  ASSIGNED_TO_QUEUE: 1,
+  ASSIGNED_TO_DISPATCHER: 2,
+  IN_PROGRESS: 3,
+  FINISHED: 4,
+};
+
+export default function BankQueueSystem() {
+  const [turnos, setTurnos] = useState([
+    { id: 103, status: STATUS.CREATED },
+    { id: 104, status: STATUS.CREATED },
+    { id: 105, status: STATUS.CREATED },
+    { id: 106, status: STATUS.CREATED },
+  ]);
+
+  const [agente, setAgente] = useState<{
+    id: number;
+    nombre: string;
+    estatus: string;
+    turnoActual: number | null;
+    enEspera: number[];
+  }>({
+    id: 1,
+    nombre: 'Agente #1',
+    estatus: 'Libre para atender',
+    turnoActual: null,
+    enEspera: [],
+  });
+
   const [logs, setLogs] = useState<string[]>([]); // Estado para almacenar los logs visibles
 
-  // Agregar logs visibles a la pantalla
   const addLog = (message: string) => {
     setLogs((prevLogs) => [...prevLogs, message]);
   };
 
-  // Solicitar permiso automáticamente al cargar la página y registrar el Service Worker
-  useEffect(() => {
-    const requestPermissionAndRegisterSW = async () => {
-      try {
-        // Solicitar permiso de notificaciones
-        if ('Notification' in window) {
-          const result = await Notification.requestPermission();
-          setPermission(result);
-          addLog(`Permiso para notificaciones: ${result}`);
-        } else {
-          addLog('El navegador no soporta notificaciones.');
-        }
-
-        // Registrar el Service Worker
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker
-            .register('/service-worker.js')
-            .then((registration) => {
-              addLog('Service Worker registrado con éxito.');
-              console.log('Service Worker registrado:', registration);
-            })
-            .catch((error) => {
-              addLog(`Error al registrar el Service Worker: ${error.message}`);
-              console.error('Error al registrar el Service Worker:', error);
-            });
-        } else {
-          addLog('El navegador no soporta Service Workers.');
-        }
-      } catch (error) {
-        addLog(`Error general: ${(error as Error).message}`);
+  // Solicitar permisos de notificaciones
+  const requestNotificationPermission = async () => {
+    if ('Notification' in window) {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        addLog('Permiso para notificaciones concedido.');
+      } else {
+        addLog('Permiso para notificaciones denegado.');
       }
-    };
-
-    requestPermissionAndRegisterSW();
-  }, []);
-
-  // Manejar el inicio del contador
-  const startTimer = () => {
-    if (!isRunning) {
-      setIsRunning(true);
-      addLog('Temporizador iniciado.');
     }
   };
 
-  // Manejar el reinicio del temporizador
-  const resetTimer = () => {
-    setTimeLeft(30);
-    setIsRunning(false);
-    addLog('Temporizador reiniciado.');
-
-    if (permission === 'granted') {
-      navigator.serviceWorker.ready.then((registration) => {
-        registration.showNotification('El temporizador se ha reiniciado', {
-          body: 'El temporizador ahora está configurado nuevamente a 30 segundos.',
-        });
-        addLog('Notificación enviada: "El temporizador se ha reiniciado".');
-      });
+  const sendNotification = (title: string, body: string) => {
+    if (Notification.permission === 'granted') {
+      new Notification(title, { body });
+      addLog(`Notificación enviada: ${title} - ${body}`);
     } else {
       addLog('Notificación no enviada: Permiso no concedido.');
     }
   };
 
-  // Manejar la cuenta regresiva
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isRunning && timeLeft > 0) {
-      timer = setInterval(() => {
-        setTimeLeft((prevTime) => prevTime - 1);
-      }, 1000);
-    } else if (timeLeft === 0) {
-      setIsRunning(false);
-      addLog('El temporizador terminó.');
-
-      if (permission === 'granted') {
-        navigator.serviceWorker.ready.then((registration) => {
-          registration.showNotification('El tiempo se ha acabado', {
-            body: 'Puedes reiniciar el temporizador si lo necesitas.',
-          });
-          addLog('Notificación enviada: "El tiempo se ha acabado".');
-        });
-      } else {
-        addLog('Notificación no enviada: Permiso no concedido.');
-      }
+  const handleAsignarTurno = () => {
+    if (turnos.length === 0) {
+      addLog('No hay turnos disponibles.');
+      return;
     }
 
-    return () => clearInterval(timer); // Limpiar el intervalo al desmontar o al actualizar
-  }, [isRunning, timeLeft, permission]);
+    // Tomar el primer turno y actualizar su estado
+    const [primerTurno, ...restantes] = turnos;
+    primerTurno.status = STATUS.ASSIGNED_TO_DISPATCHER;
 
-  // Formatear el tiempo en minutos y segundos
-  const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${minutes.toString().padStart(2, '0')}:${secs
-      .toString()
-      .padStart(2, '0')}`;
+    // Actualizar el agente (sin cambiar su estatus) y la lista de turnos
+    setAgente((prev) => ({
+      ...prev,
+      enEspera: [...prev.enEspera, primerTurno.id],
+    }));
+    setTurnos(restantes);
+
+    // Mostrar el estatus del turno asignado
+    addLog(`Turno ${primerTurno.id} asignado. Estatus: ${getStatusLabel(primerTurno.status)}`);
   };
 
+  const handleLlamarTurno = () => {
+    if (agente.enEspera.length === 0) {
+      addLog('No hay turnos en espera.');
+      return;
+    }
+
+    // Tomar el primer turno de la lista en espera
+    const [primerTurno, ...restantesEnEspera] = agente.enEspera;
+
+    // Actualizar el agente y cambiar su estatus a "Atendiendo"
+    setAgente((prev) => ({
+      ...prev,
+      estatus: 'Atendiendo',
+      turnoActual: primerTurno,
+      enEspera: restantesEnEspera,
+    }));
+
+    // Enviar notificación
+    sendNotification('Turno asignado', `El turno ${primerTurno} está ahora EN PROGRESO.`);
+    addLog(`Turno ${primerTurno} cambiado a IN_PROGRESS.`);
+  };
+
+  const handleTerminarTurno = () => {
+    if (!agente.turnoActual) {
+      addLog('No hay turno actual para terminar.');
+      return;
+    }
+
+    // Actualizar el turno a FINISHED
+    const turnoTerminado = agente.turnoActual;
+
+    // Actualizar el agente a "Libre para atender"
+    setAgente((prev) => ({
+      ...prev,
+      estatus: 'Libre para atender',
+      turnoActual: null,
+    }));
+
+    // Mostrar el estatus del turno terminado
+    addLog(`Turno ${turnoTerminado} terminado. Estatus: FINISHED.`);
+  };
+
+  const getStatusLabel = (status: number) => {
+    switch (status) {
+      case STATUS.CREATED:
+        return 'CREATED';
+      case STATUS.ASSIGNED_TO_QUEUE:
+        return 'ASSIGNED_TO_QUEUE';
+      case STATUS.ASSIGNED_TO_DISPATCHER:
+        return 'ASSIGNED_TO_DISPATCHER';
+      case STATUS.IN_PROGRESS:
+        return 'IN_PROGRESS';
+      case STATUS.FINISHED:
+        return 'FINISHED';
+      default:
+        return 'UNKNOWN';
+    }
+  };
+
+  // Solicitar permisos de notificaciones al cargar la página
+  useEffect(() => {
+    requestNotificationPermission();
+  }, []);
+
   return (
-    <div className='flex flex-col items-center justify-center h-screen'>
-      <div className='border-2 border-black p-8 space-y-4 flex items-center justify-center flex-col'>
-        <h1 className='text-2xl font-bold'>
-          Prueba de Notificaciones Automáticas
-        </h1>
-        <p className='text-lg'>
-          Estado del permiso: <strong>{permission}</strong>
-        </p>
-        <h2 className='text-xl'>
-          Tiempo restante: <strong>{formatTime(timeLeft)}</strong>
-        </h2>
-        <button
-          className='bg-blue-700 text-white w-96 p-2 rounded-md'
-          onClick={startTimer}
-          disabled={isRunning}
-        >
-          Iniciar Temporizador
-        </button>
-        <button
-          className='bg-gray-700 text-white w-96 p-2 rounded-md'
-          onClick={resetTimer}
-          disabled={timeLeft === 30 && !isRunning}
-        >
-          Reiniciar Temporizador
-        </button>
+    <div className="p-4">
+      {/* Turnos por asignar */}
+      <div className="mb-4">
+        <h2 className="text-lg font-bold">Turnos por asignar:</h2>
+        <div className="flex flex-wrap gap-4">
+          {turnos.map((turno) => (
+            <div
+              key={turno.id}
+              className="bg-blue-500 text-white px-4 py-2 rounded flex flex-col items-center text-sm"
+            >
+              <span>Turno: {turno.id}</span>
+              <span className="text-xs bg-white text-blue-500 px-2 py-1 rounded mt-1">
+                {getStatusLabel(turno.status)}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
-      <div className='mt-4 border-t-2 border-black w-full max-w-xl p-4'>
-        <h3 className='text-lg font-bold'>Logs:</h3>
-        <ul className='list-disc pl-6'>
+
+      {/* Tabla de agente */}
+      <div className="overflow-x-auto">
+        <table className="table-auto border-collapse w-full text-left">
+          <thead>
+            <tr className="bg-blue-800 text-white text-sm">
+              <th className="border px-2 py-1 md:px-4 md:py-2">Módulo</th>
+              <th className="border px-2 py-1 md:px-4 md:py-2">Ejecutivo</th>
+              <th className="border px-2 py-1 md:px-4 md:py-2">Estatus</th>
+              <th className="border px-2 py-1 md:px-4 md:py-2">Turno Actual</th>
+              <th className="border px-2 py-1 md:px-4 md:py-2">En Espera</th>
+              <th className="border px-2 py-1 md:px-4 md:py-2">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td className="border px-2 py-1 md:px-4 md:py-2">{agente.id}</td>
+              <td className="border px-2 py-1 md:px-4 md:py-2">{agente.nombre}</td>
+              <td
+                className={`border px-2 py-1 md:px-4 md:py-2 ${
+                  agente.estatus === 'Libre para atender' ? 'text-green-600' : 'text-red-600'
+                }`}
+              >
+                {agente.estatus}
+              </td>
+              <td className="border px-2 py-1 md:px-4 md:py-2">
+                {agente.turnoActual || 'Sin turno actual'}
+              </td>
+              <td className="border px-2 py-1 md:px-4 md:py-2">
+                {agente.enEspera.length > 0 ? agente.enEspera.join(', ') : '-'}
+              </td>
+              <td className="border px-2 py-1 md:px-4 md:py-2 space-y-2 md:space-y-0 md:space-x-2">
+                <button
+                  className="bg-teal-500 text-white px-4 py-2 rounded w-full md:w-auto"
+                  onClick={handleAsignarTurno}
+                  disabled={turnos.length === 0}
+                >
+                  Asignar
+                </button>
+                <button
+                  className="bg-blue-500 text-white px-4 py-2 rounded w-full md:w-auto"
+                  onClick={handleLlamarTurno}
+                  disabled={agente.enEspera.length === 0}
+                >
+                  Llamar
+                </button>
+                <button
+                  className="bg-red-500 text-white px-4 py-2 rounded w-full md:w-auto"
+                  onClick={handleTerminarTurno}
+                  disabled={!agente.turnoActual}
+                >
+                  Terminar
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Logs visibles */}
+      <div className="mt-4 border-t-2 border-black w-full max-w-xl p-4">
+        <h3 className="text-lg font-bold">Logs:</h3>
+        <ul className="list-disc pl-6">
           {logs.map((log, index) => (
-            <li key={index} className='text-sm'>
+            <li key={index} className="text-sm">
               {log}
             </li>
           ))}

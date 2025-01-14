@@ -39,18 +39,6 @@ export default function BankQueueSystem() {
     setLogs((prevLogs) => [...prevLogs, message]);
   };
 
-  // Solicitar permisos de notificaciones
-  const requestNotificationPermission = async () => {
-    if ('Notification' in window) {
-      const permission = await Notification.requestPermission();
-      if (permission === 'granted') {
-        addLog('Permiso para notificaciones concedido.');
-      } else {
-        addLog('Permiso para notificaciones denegado.');
-      }
-    }
-  };
-
   const sendNotification = (title: string, body: string) => {
     if (Notification.permission === 'granted') {
       new Notification(title, { body });
@@ -66,18 +54,15 @@ export default function BankQueueSystem() {
       return;
     }
 
-    // Tomar el primer turno y actualizar su estado
     const [primerTurno, ...restantes] = turnos;
     primerTurno.status = STATUS.ASSIGNED_TO_DISPATCHER;
 
-    // Actualizar el agente (sin cambiar su estatus) y la lista de turnos
     setAgente((prev) => ({
       ...prev,
       enEspera: [...prev.enEspera, primerTurno.id],
     }));
     setTurnos(restantes);
 
-    // Mostrar el estatus del turno asignado
     addLog(`Turno ${primerTurno.id} asignado. Estatus: ${getStatusLabel(primerTurno.status)}`);
   };
 
@@ -87,10 +72,8 @@ export default function BankQueueSystem() {
       return;
     }
 
-    // Tomar el primer turno de la lista en espera
     const [primerTurno, ...restantesEnEspera] = agente.enEspera;
 
-    // Actualizar el agente y cambiar su estatus a "Atendiendo"
     setAgente((prev) => ({
       ...prev,
       estatus: 'Atendiendo',
@@ -98,7 +81,6 @@ export default function BankQueueSystem() {
       enEspera: restantesEnEspera,
     }));
 
-    // Enviar notificación
     sendNotification('Turno asignado', `El turno ${primerTurno} está ahora EN PROGRESO.`);
     addLog(`Turno ${primerTurno} cambiado a IN_PROGRESS.`);
   };
@@ -109,17 +91,14 @@ export default function BankQueueSystem() {
       return;
     }
 
-    // Actualizar el turno a FINISHED
     const turnoTerminado = agente.turnoActual;
 
-    // Actualizar el agente a "Libre para atender"
     setAgente((prev) => ({
       ...prev,
       estatus: 'Libre para atender',
       turnoActual: null,
     }));
 
-    // Mostrar el estatus del turno terminado
     addLog(`Turno ${turnoTerminado} terminado. Estatus: FINISHED.`);
   };
 
@@ -142,6 +121,17 @@ export default function BankQueueSystem() {
 
   // Solicitar permisos de notificaciones al cargar la página
   useEffect(() => {
+    const requestNotificationPermission = async () => {
+      if ('Notification' in window) {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          addLog('Permiso para notificaciones concedido.');
+        } else {
+          addLog('Permiso para notificaciones denegado.');
+        }
+      }
+    };
+
     requestNotificationPermission();
   }, []);
 

@@ -119,20 +119,50 @@ export default function BankQueueSystem() {
     }
   };
 
-  // Solicitar permisos de notificaciones al cargar la página
+  // Solicitar permisos de notificaciones y registrar el Service Worker al cargar la página
   useEffect(() => {
-    const requestNotificationPermission = async () => {
-      if ('Notification' in window) {
-        const permission = await Notification.requestPermission();
-        if (permission === 'granted') {
-          addLog('Permiso para notificaciones concedido.');
-        } else {
-          addLog('Permiso para notificaciones denegado.');
+    const initializeApp = async () => {
+      try {
+        // Solicitar permisos de notificaciones
+        if ('Notification' in window) {
+          const permission = await Notification.requestPermission();
+          if (permission === 'granted') {
+            addLog('Permiso para notificaciones concedido.');
+          } else {
+            addLog('Permiso para notificaciones denegado.');
+          }
         }
+
+        // Registrar el Service Worker
+        if ('serviceWorker' in navigator) {
+          const registration = await navigator.serviceWorker.register('/service-worker.js');
+          addLog('Service Worker registrado con éxito.');
+          console.log('Service Worker registrado:', registration);
+
+          // Detectar actualizaciones del Service Worker
+          registration.onupdatefound = () => {
+            const installingWorker = registration.installing;
+            if (installingWorker) {
+              installingWorker.onstatechange = () => {
+                if (installingWorker.state === 'installed') {
+                  if (navigator.serviceWorker.controller) {
+                    addLog('Nueva versión disponible. Actualiza la página para usarla.');
+                  } else {
+                    addLog('Contenido en caché listo para usarse sin conexión.');
+                  }
+                }
+              };
+            }
+          };
+        } else {
+          addLog('El navegador no soporta Service Workers.');
+        }
+      } catch (error) {
+        addLog(`Error inicializando la aplicación: ${(error as Error).message}`);
       }
     };
 
-    requestNotificationPermission();
+    initializeApp();
   }, []);
 
   return (

@@ -97,7 +97,7 @@ export default function TimerWithNotifications() {
       }
     }
 
-    return () => clearInterval(timer); // Limpiar el intervalo al desmontar o al actualizar......
+    return () => clearInterval(timer); // Limpiar el intervalo al desmontar o al actualizar
   }, [isRunning, timeLeft, permission]);
 
   // Formatear el tiempo en minutos y segundos

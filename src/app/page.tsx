@@ -39,12 +39,21 @@ export default function BankQueueSystem() {
     setLogs((prevLogs) => [...prevLogs, message]);
   };
 
-  const sendNotification = (title: string, body: string) => {
-    if (Notification.permission === 'granted') {
-      new Notification(title, { body });
-      addLog(`Notificación enviada: ${title} - ${body}`);
+  const sendNotification = async (title: string, body: string) => {
+    if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        registration.showNotification(title, {
+          body,
+          icon: '/icons/icon-192x192.png', // Asegúrate de que este icono exista en tu carpeta public/icons
+        });
+        addLog(`Notificación enviada: ${title} - ${body}`);
+      } catch (error) {
+        addLog(`Error al enviar la notificación: ${(error as Error).message}`);
+        console.error('Error al enviar la notificación:', error);
+      }
     } else {
-      addLog('Notificación no enviada: Permiso no concedido.');
+      addLog('Notificación no enviada: Permiso no concedido o Service Worker no soportado.');
     }
   };
 
